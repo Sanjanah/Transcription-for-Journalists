@@ -5,13 +5,15 @@ import { TranscriptionDisplay } from './components/TranscriptionDisplay';
 import { AssistantPanel } from './components/AssistantPanel';
 import { Button } from './components/Button';
 import { MediaFile, TranscriptionStatus } from './types';
-import { transcribeMedia } from './services/geminiService';
+import { transcribeMedia, translateTranscript } from './services/geminiService';
 import { Play, Pause, AlertTriangle, FileAudio, FileVideo, Sparkles, FileText, MessageSquareText } from 'lucide-react';
 
 const App: React.FC = () => {
   const [mediaFile, setMediaFile] = useState<MediaFile | null>(null);
   const [status, setStatus] = useState<TranscriptionStatus>(TranscriptionStatus.IDLE);
   const [transcription, setTranscription] = useState<string>('');
+  const [translatedText, setTranslatedText] = useState<string>('');
+  const [isTranslating, setIsTranslating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [activeTab, setActiveTab] = useState<'transcript' | 'assistant'>('transcript');
@@ -32,6 +34,7 @@ const App: React.FC = () => {
     setMediaFile(file);
     setError(null);
     setTranscription('');
+    setTranslatedText('');
     setStatus(TranscriptionStatus.IDLE);
     setActiveTab('transcript');
   };
@@ -44,7 +47,8 @@ const App: React.FC = () => {
 
     try {
       setStatus(TranscriptionStatus.TRANSCRIBING);
-      const result = await transcribeMedia(mediaFile.file);
+      // Pass the processed (possibly segmented) files to the service
+      const result = await transcribeMedia(mediaFile.processedFiles);
       setTranscription(result);
       setStatus(TranscriptionStatus.COMPLETED);
     } catch (err: any) {
@@ -54,9 +58,27 @@ const App: React.FC = () => {
     }
   };
 
+  const handleTranslate = async () => {
+    if (!transcription) return;
+    
+    setIsTranslating(true);
+    setError(null);
+    
+    try {
+      const result = await translateTranscript(transcription);
+      setTranslatedText(result);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Translation failed.");
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
   const handleReset = () => {
     setMediaFile(null);
     setTranscription('');
+    setTranslatedText('');
     setStatus(TranscriptionStatus.IDLE);
     setError(null);
     setActiveTab('transcript');
@@ -109,12 +131,18 @@ const App: React.FC = () => {
                 <div className="space-y-3">
                   <div className="flex justify-between text-sm text-journal-500">
                     <span>Filename:</span>
-                    <span className="font-medium text-journal-900 truncate max-w-[200px]">{mediaFile.file.name}</span>
+                    <span className="font-medium text-journal-900 truncate max-w-[200px]">{mediaFile.originalFile.name}</span>
                   </div>
                   <div className="flex justify-between text-sm text-journal-500">
-                    <span>Size:</span>
-                    <span className="font-medium text-journal-900">{(mediaFile.file.size / (1024 * 1024)).toFixed(2)} MB</span>
+                    <span>Original Size:</span>
+                    <span className="font-medium text-journal-900">{(mediaFile.originalFile.size / (1024 * 1024)).toFixed(2)} MB</span>
                   </div>
+                  {mediaFile.processedFiles.length > 1 && (
+                    <div className="flex justify-between text-sm text-journal-500">
+                      <span>Segments:</span>
+                      <span className="font-medium text-journal-accent">{mediaFile.processedFiles.length} chunks</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-6">
@@ -137,6 +165,9 @@ const App: React.FC = () => {
                          {status === TranscriptionStatus.PROCESSING_FILE ? "Processing file..." : "Transcribing..."}
                        </p>
                        <p className="text-xs text-journal-400 mt-2">Elapsed: {elapsedTime}s</p>
+                       {mediaFile.processedFiles.length > 1 && (
+                         <p className="text-xs text-journal-500 mt-1 italic">Processing large file in segments...</p>
+                       )}
                     </div>
                   )}
                 </div>
@@ -154,7 +185,7 @@ const App: React.FC = () => {
                  <h4 className="font-semibold text-journal-700 mb-2 text-sm">Pro Tips</h4>
                  <ul className="text-sm text-journal-500 space-y-2 list-disc pl-4">
                    <li>Switch to the Assistant tab to summarize the text.</li>
-                   <li>The AI attempts to identify speakers automatically.</li>
+                   <li>You can translate the transcript to English in the Transcript view.</li>
                    <li>Use the search bar in the transcript view to find keywords.</li>
                  </ul>
               </div>
@@ -191,7 +222,13 @@ const App: React.FC = () => {
                 <div className="flex-1 relative">
                   {activeTab === 'transcript' && (
                     transcription ? (
-                       <TranscriptionDisplay text={transcription} onReset={handleReset} />
+                       <TranscriptionDisplay 
+                        text={transcription} 
+                        translatedText={translatedText}
+                        onReset={handleReset} 
+                        onTranslate={handleTranslate}
+                        isTranslating={isTranslating}
+                       />
                     ) : (
                        <div className="h-full bg-white rounded-xl shadow-sm border border-journal-200 flex flex-col items-center justify-center text-center p-12">
                           <div className="w-16 h-16 bg-journal-50 rounded-full flex items-center justify-center mb-4 text-journal-300">

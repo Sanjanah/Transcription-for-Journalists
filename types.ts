@@ -14,7 +14,8 @@ export interface TranscriptionResult {
 }
 
 export interface MediaFile {
-  file: File;
+  originalFile: File;      // The original user file for display/preview
+  processedFiles: File[];  // Array of chunks to send to API
   previewUrl: string;
   type: 'audio' | 'video';
 }
