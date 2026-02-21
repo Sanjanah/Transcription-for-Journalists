@@ -85,7 +85,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f5f5f7] flex flex-col font-sans text-journal-900">
+    <div className="min-h-screen bg-journal-50 flex flex-col font-sans text-journal-900">
       <Header />
 
       <main className="flex-1 container mx-auto px-4 py-8 max-w-7xl">
@@ -113,7 +113,7 @@ const App: React.FC = () => {
                   </Button>
                 </div>
                 
-                <div className="bg-journal-900 rounded-lg overflow-hidden aspect-video flex items-center justify-center mb-4 relative group">
+                <div className="bg-journal-900 rounded-lg overflow-hidden aspect-video flex items-center justify-center mb-4 relative group shadow-inner">
                   {mediaFile.type === 'video' ? (
                     <video 
                       src={mediaFile.previewUrl} 
@@ -149,17 +149,17 @@ const App: React.FC = () => {
                   {status === TranscriptionStatus.IDLE || status === TranscriptionStatus.ERROR ? (
                     <Button 
                       onClick={handleTranscribe} 
-                      className="w-full h-12 text-lg shadow-md shadow-journal-900/5"
+                      className="w-full h-12 text-lg shadow-md shadow-journal-900/10"
                     >
                       <Sparkles size={18} className="mr-2" />
                       Start Transcription
                     </Button>
                   ) : status === TranscriptionStatus.COMPLETED ? (
-                     <div className="bg-green-50 text-green-700 p-3 rounded-lg text-center font-medium border border-green-100">
+                     <div className="bg-emerald-50 text-emerald-700 p-3 rounded-lg text-center font-medium border border-emerald-200 shadow-sm">
                         Transcription Complete
                      </div>
                   ) : (
-                    <div className="bg-journal-50 border border-journal-100 rounded-lg p-4 flex flex-col items-center justify-center py-8">
+                    <div className="bg-journal-50 border border-journal-200 rounded-lg p-4 flex flex-col items-center justify-center py-8 shadow-inner">
                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-journal-900 mb-3"></div>
                        <p className="text-journal-600 font-medium animate-pulse">
                          {status === TranscriptionStatus.PROCESSING_FILE ? "Processing file..." : "Transcribing..."}

@@ -107,13 +107,13 @@ export const TranscriptionDisplay: React.FC<TranscriptionDisplayProps> = ({
       <div className="flex flex-col md:flex-row items-center justify-between px-4 py-3 border-b border-journal-100 bg-journal-50 gap-3">
         
         {/* View Toggle */}
-        <div className="flex bg-white rounded-lg p-1 border border-journal-200">
+        <div className="flex bg-white rounded-lg p-1 border border-journal-200 shadow-sm">
            <button 
              onClick={() => setViewMode('original')}
-             className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+             className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${
                viewMode === 'original' 
                ? 'bg-journal-100 text-journal-900 shadow-sm' 
-               : 'text-journal-500 hover:text-journal-700'
+               : 'text-journal-500 hover:text-journal-700 hover:bg-journal-50'
              }`}
            >
              Original
@@ -124,10 +124,10 @@ export const TranscriptionDisplay: React.FC<TranscriptionDisplayProps> = ({
                else if (onTranslate) onTranslate();
              }}
              disabled={isTranslating}
-             className={`px-3 py-1 rounded text-xs font-medium transition-all flex items-center gap-1 ${
+             className={`px-3 py-1.5 rounded text-xs font-medium transition-all flex items-center gap-1.5 ${
                viewMode === 'translated' 
                ? 'bg-journal-100 text-journal-900 shadow-sm' 
-               : 'text-journal-500 hover:text-journal-700'
+               : 'text-journal-500 hover:text-journal-700 hover:bg-journal-50'
              }`}
            >
              {isTranslating ? (
@@ -146,14 +146,14 @@ export const TranscriptionDisplay: React.FC<TranscriptionDisplayProps> = ({
 
         {/* Search Bar */}
         <div className="flex-1 max-w-sm w-full relative group">
-          <div className="flex items-center bg-white border border-journal-200 rounded-md px-2 py-1.5 focus-within:border-journal-400 focus-within:ring-1 focus-within:ring-journal-200 transition-all">
+          <div className="flex items-center bg-white border border-journal-200 rounded-md px-3 py-2 focus-within:border-journal-400 focus-within:ring-1 focus-within:ring-journal-200 transition-all shadow-sm">
             <Search size={14} className="text-journal-400 mr-2 shrink-0" />
             <input 
               type="text" 
-              placeholder="Search text..." 
+              placeholder="Search transcript..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 bg-transparent border-none outline-none text-sm placeholder-journal-300 min-w-0"
+              className="flex-1 bg-transparent border-none outline-none text-sm placeholder-journal-400 min-w-0 text-journal-900"
             />
             {searchQuery && (
               <div className="flex items-center gap-1 pl-2 border-l border-journal-100">
@@ -237,7 +237,7 @@ export const TranscriptionDisplay: React.FC<TranscriptionDisplayProps> = ({
             )}
             
             {processedParagraphs.map((paragraph, pIdx) => (
-               <p key={pIdx} className="mb-4 text-journal-800 font-serif leading-relaxed text-lg">
+               <p key={pIdx} className="mb-6 text-journal-800 font-serif leading-relaxed text-lg">
                   {paragraph.parts.map((part, partIdx) => {
                     if (part.isMatch) {
                       return (
