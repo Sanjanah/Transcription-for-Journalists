@@ -48,7 +48,7 @@ const App: React.FC = () => {
     try {
       setStatus(TranscriptionStatus.TRANSCRIBING);
       // Pass the processed (possibly segmented) files to the service
-      const result = await transcribeMedia(mediaFile.processedFiles);
+      const result = await transcribeMedia(mediaFile);
       setTranscription(result);
       setStatus(TranscriptionStatus.COMPLETED);
     } catch (err: any) {
@@ -129,19 +129,28 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="space-y-3">
-                  <div className="flex justify-between text-sm text-journal-500">
-                    <span>Filename:</span>
-                    <span className="font-medium text-journal-900 truncate max-w-[200px]">{mediaFile.originalFile.name}</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-journal-500">
-                    <span>Original Size:</span>
-                    <span className="font-medium text-journal-900">{(mediaFile.originalFile.size / (1024 * 1024)).toFixed(2)} MB</span>
-                  </div>
-                  {mediaFile.processedFiles.length > 1 && (
+                  {mediaFile.type === 'youtube' ? (
                     <div className="flex justify-between text-sm text-journal-500">
-                      <span>Segments:</span>
-                      <span className="font-medium text-journal-accent">{mediaFile.processedFiles.length} chunks</span>
+                      <span>Source:</span>
+                      <span className="font-medium text-journal-900 truncate max-w-[200px]">YouTube URL</span>
                     </div>
+                  ) : (
+                    <>
+                      <div className="flex justify-between text-sm text-journal-500">
+                        <span>Filename:</span>
+                        <span className="font-medium text-journal-900 truncate max-w-[200px]">{mediaFile.originalFile?.name}</span>
+                      </div>
+                      <div className="flex justify-between text-sm text-journal-500">
+                        <span>Original Size:</span>
+                        <span className="font-medium text-journal-900">{((mediaFile.originalFile?.size || 0) / (1024 * 1024)).toFixed(2)} MB</span>
+                      </div>
+                      {(mediaFile.processedFiles?.length || 0) > 1 && (
+                        <div className="flex justify-between text-sm text-journal-500">
+                          <span>Segments:</span>
+                          <span className="font-medium text-journal-accent">{mediaFile.processedFiles?.length} chunks</span>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -165,7 +174,7 @@ const App: React.FC = () => {
                          {status === TranscriptionStatus.PROCESSING_FILE ? "Processing file..." : "Transcribing..."}
                        </p>
                        <p className="text-xs text-journal-400 mt-2">Elapsed: {elapsedTime}s</p>
-                       {mediaFile.processedFiles.length > 1 && (
+                       {(mediaFile.processedFiles?.length || 0) > 1 && (
                          <p className="text-xs text-journal-500 mt-1 italic">Processing large file in segments...</p>
                        )}
                     </div>
