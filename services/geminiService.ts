@@ -175,6 +175,68 @@ export const translateTranscript = async (text: string): Promise<string> => {
   }
 };
 
+export const generateSummary = async (text: string): Promise<string> => {
+  if (!apiKey) {
+    throw new Error("API Key is missing.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+
+  const prompt = `
+    You are a senior editorial analyst and briefing writer. Your task is to produce a professional readout (executive synopsis) of the following transcript.
+
+    TRANSCRIPT:
+    ${text}
+
+    INSTRUCTIONS:
+    1. Begin with a single line: "# [Title]" — a clear, descriptive title that captures the broad subject of the transcript (e.g., "City Council Budget Hearing — FY2025 Appropriations", "Interview: CEO on Company Restructuring Plans").
+    2. Follow with a "## Overview" section: 2-3 sentences describing what this transcript is about, who is involved, and the context.
+    3. Add a "## Key Points by Speaker" section. For each identified speaker, create a "### [Speaker Name/Label]" subsection with bullet points summarizing their key statements, arguments, or contributions. Attribute every point clearly.
+    4. Add a "## Key Themes & Takeaways" section with the most important themes, decisions, or outcomes discussed.
+    5. CRITICAL — If the transcript contains ANY of the following, you MUST include a dedicated section with properly formatted markdown tables:
+       - **Budget or financial figures**: Create a "## Budget & Financial Details" section with a table. Columns might include: Item/Category, Amount, Speaker/Source, Notes.
+       - **Planning details, timelines, or milestones**: Create a "## Planning & Timeline" section with a table. Columns might include: Phase/Milestone, Date/Timeframe, Responsible Party, Details.
+       - **Voting or decision records**: Create a "## Decisions & Votes" section with a table.
+       - **Statistical data or comparisons**: Create an appropriate table section.
+       If none of these are present, skip the table sections entirely.
+    6. End with a "## Notable Quotes" section — 2-4 of the most impactful direct quotes with speaker attribution and timecodes [MM:SS] if available.
+
+    FORMATTING RULES (follow exactly):
+    - Use markdown headings: # for title, ## for sections, ### for subsections
+    - Use **bold** for emphasis on key terms, names, or figures
+    - Use bullet points with "- " prefix for lists
+    - For tables, use standard markdown table syntax:
+      | Column 1 | Column 2 | Column 3 |
+      |----------|----------|----------|
+      | data     | data     | data     |
+    - Use > for direct quotes (blockquotes)
+    - Separate sections with blank lines
+    - Be concise but thorough — aim for clarity over length
+    - All monetary values should be clearly formatted (e.g., $1.2M, $45,000)
+    - Do NOT fabricate information. Only report what is in the transcript.
+
+    Produce the readout now:
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: {
+        parts: [{ text: prompt }]
+      },
+    });
+
+    if (!response.text) {
+      throw new Error("Summary generation failed.");
+    }
+
+    return response.text;
+  } catch (error: any) {
+    console.error("Summary generation error:", error);
+    throw new Error("Failed to generate summary. " + error.message);
+  }
+};
+
 export const createChatSession = (transcription: string): Chat => {
   if (!apiKey) {
     throw new Error("API Key is missing.");

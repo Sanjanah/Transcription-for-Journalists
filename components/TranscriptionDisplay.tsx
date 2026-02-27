@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Copy, Check, Download, Type, RotateCcw, Search, ChevronUp, ChevronDown, X, Globe, Languages } from 'lucide-react';
+import { Copy, Check, Download, Type, RotateCcw, Search, ChevronUp, ChevronDown, X, Globe, Languages, FileBarChart } from 'lucide-react';
 import { Button } from './Button';
 import { copyToClipboard, downloadText } from '../utils/fileHelper';
 
@@ -9,14 +9,18 @@ interface TranscriptionDisplayProps {
   onReset: () => void;
   onTranslate?: () => void;
   isTranslating?: boolean;
+  onGenerateSummary?: () => void;
+  isGeneratingSummary?: boolean;
 }
 
-export const TranscriptionDisplay: React.FC<TranscriptionDisplayProps> = ({ 
-  text, 
-  translatedText, 
+export const TranscriptionDisplay: React.FC<TranscriptionDisplayProps> = ({
+  text,
+  translatedText,
   onReset,
   onTranslate,
-  isTranslating = false
+  isTranslating = false,
+  onGenerateSummary,
+  isGeneratingSummary = false
 }) => {
   const [copied, setCopied] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -193,6 +197,29 @@ export const TranscriptionDisplay: React.FC<TranscriptionDisplayProps> = ({
                 Translate to English
              </Button>
            )}
+
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={onGenerateSummary}
+            disabled={isGeneratingSummary}
+            title="Generate a professional readout"
+            className="h-8 md:px-3 text-xs shadow-sm"
+          >
+            {isGeneratingSummary ? (
+              <>
+                <div className="animate-spin h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full mr-1.5"></div>
+                <span className="hidden md:inline">Generating...</span>
+              </>
+            ) : (
+              <>
+                <FileBarChart size={14} className="md:mr-1.5" />
+                <span className="hidden md:inline">Generate Readout</span>
+              </>
+            )}
+          </Button>
+
+          <div className="h-4 w-px bg-journal-300 mx-1 hidden md:block"></div>
 
           <Button variant="outline" size="sm" onClick={handleCopy} title="Copy to clipboard" className="h-8 w-8 px-0 md:w-auto md:px-3">
             {copied ? <Check size={14} className="md:mr-1.5" /> : <Copy size={14} className="md:mr-1.5" />}

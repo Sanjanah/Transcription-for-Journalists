@@ -5,7 +5,8 @@ import { TranscriptionDisplay } from './components/TranscriptionDisplay';
 import { AssistantPanel } from './components/AssistantPanel';
 import { Button } from './components/Button';
 import { MediaFile, TranscriptionStatus } from './types';
-import { transcribeMedia, translateTranscript } from './services/geminiService';
+import { transcribeMedia, translateTranscript, generateSummary } from './services/geminiService';
+import { SummaryReadout } from './components/SummaryReadout';
 import { Play, Pause, AlertTriangle, FileAudio, FileVideo, Sparkles, FileText, MessageSquareText } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -17,6 +18,9 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [activeTab, setActiveTab] = useState<'transcript' | 'assistant'>('transcript');
+  const [summaryText, setSummaryText] = useState<string>('');
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
 
   useEffect(() => {
     let interval: number;
@@ -75,10 +79,36 @@ const App: React.FC = () => {
     }
   };
 
+  const handleGenerateSummary = async () => {
+    if (!transcription) return;
+
+    // If already generated, just show it
+    if (summaryText) {
+      setShowSummary(true);
+      return;
+    }
+
+    setIsGeneratingSummary(true);
+    setError(null);
+
+    try {
+      const result = await generateSummary(transcription);
+      setSummaryText(result);
+      setShowSummary(true);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Failed to generate summary.");
+    } finally {
+      setIsGeneratingSummary(false);
+    }
+  };
+
   const handleReset = () => {
     setMediaFile(null);
     setTranscription('');
     setTranslatedText('');
+    setSummaryText('');
+    setShowSummary(false);
     setStatus(TranscriptionStatus.IDLE);
     setError(null);
     setActiveTab('transcript');
@@ -231,12 +261,14 @@ const App: React.FC = () => {
                 <div className="flex-1 relative">
                   {activeTab === 'transcript' && (
                     transcription ? (
-                       <TranscriptionDisplay 
-                        text={transcription} 
+                       <TranscriptionDisplay
+                        text={transcription}
                         translatedText={translatedText}
-                        onReset={handleReset} 
+                        onReset={handleReset}
                         onTranslate={handleTranslate}
                         isTranslating={isTranslating}
+                        onGenerateSummary={handleGenerateSummary}
+                        isGeneratingSummary={isGeneratingSummary}
                        />
                     ) : (
                        <div className="h-full bg-white rounded-xl shadow-sm border border-journal-200 flex flex-col items-center justify-center text-center p-12">
@@ -259,6 +291,14 @@ const App: React.FC = () => {
           </div>
         )}
       </main>
+
+      {/* Summary Readout Modal */}
+      {showSummary && summaryText && (
+        <SummaryReadout
+          summary={summaryText}
+          onClose={() => setShowSummary(false)}
+        />
+      )}
     </div>
   );
 };
