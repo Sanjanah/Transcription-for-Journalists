@@ -13,69 +13,23 @@ export const transcribeMedia = async (mediaFile: MediaFile): Promise<string> => 
 
   const ai = new GoogleGenAI({ apiKey });
   const modelId = 'gemini-3-flash-preview'; 
-  
-  if (mediaFile.type === 'youtube' && mediaFile.youtubeUrl) {
-    try {
-      const prompt = `
-        You are a professional transcription assistant for journalists. 
-        Please transcribe the following YouTube video with high accuracy.
-        
-        Requirements:
-        1. Language: Transcribe strictly in the original spoken language. DO NOT TRANSLATE.
-        2. Timecodes: Provide a timestamp at the start of every new speaker or paragraph (format: [MM:SS]). 
-        3. Speaker Identification: Identify speakers (e.g., "Speaker 1:", "Interviewer:", "Subject:") if possible.
-        4. Formatting: Use clear paragraph breaks.
-        5. Verbatim: Keep the transcription verbatim but remove excessive filler words (um, ah) unless they add context to the hesitation.
-        
-        Output only the transcription text. Do not add introductory or concluding remarks.
-      `;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
-        contents: `Transcribe this video: ${mediaFile.youtubeUrl}\n\n${prompt}`,
-        config: {
-          tools: [{ googleSearch: {} }, { urlContext: {} }]
-        }
-      });
-
-      if (response.text) {
-        return response.text;
-      } else {
-         throw new Error("Empty response from model");
-      }
-    } catch (error: any) {
-      console.error(`Failed to transcribe YouTube video:`, error);
-      throw new Error(`Failed to transcribe YouTube video. ${error.message}`);
-    }
-  }
 
   const files = mediaFile.processedFiles || [];
-  const fullTranscriptionParts: string[] = [];
   const MAX_RETRIES = 3;
 
-  // Process files sequentially to maintain order and manage rate limits
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    
-    // Calculate time context
+  // Process a single chunk
+  const processChunk = async (file: File, index: number): Promise<string> => {
     const isChunked = files.length > 1;
-    const startTimeSeconds = i * CHUNK_DURATION_SECONDS;
+    const startTimeSeconds = index * CHUNK_DURATION_SECONDS;
     const formattedStartTime = formatTime(startTimeSeconds);
     
-    // Context string for the prompt
     const partInfo = isChunked 
-      ? `(Part ${i + 1} of ${files.length}). IMPORTANT: This audio segment starts at ${formattedStartTime} of the full recording.` 
+      ? `(Part ${index + 1} of ${files.length}). IMPORTANT: This audio segment starts at ${formattedStartTime} of the full recording.` 
       : '';
       
-    // Add a polite delay between chunks to avoid rate limiting
-    if (i > 0) {
-      await delay(2000); // 2 second delay between chunks
-    }
-    
     let attempts = 0;
-    let success = false;
     
-    while (attempts < MAX_RETRIES && !success) {
+    while (attempts < MAX_RETRIES) {
       try {
         const mediaPart = await fileToGenerativePart(file);
 
@@ -86,7 +40,7 @@ export const transcribeMedia = async (mediaFile: MediaFile): Promise<string> => 
           Requirements:
           1. Language: Transcribe strictly in the original spoken language. DO NOT TRANSLATE.
           2. Timecodes: Provide a timestamp at the start of every new speaker or paragraph (format: [MM:SS]). 
-             ${isChunked ? `CRITICAL: Since this is Part ${i + 1}, your first timestamp MUST start around [${formattedStartTime}] (or later depending on when speech starts), NOT [00:00]. Calculate all subsequent timestamps relative to this start time.` : ''}
+             ${isChunked ? `CRITICAL: Since this is Part ${index + 1}, your first timestamp MUST start around [${formattedStartTime}] (or later depending on when speech starts), NOT [00:00]. Calculate all subsequent timestamps relative to this start time.` : ''}
           3. Speaker Identification: Identify speakers (e.g., "Speaker 1:", "Interviewer:", "Subject:") if possible.
           4. Formatting: Use clear paragraph breaks.
           5. Verbatim: Keep the transcription verbatim but remove excessive filler words (um, ah) unless they add context to the hesitation.
@@ -102,32 +56,46 @@ export const transcribeMedia = async (mediaFile: MediaFile): Promise<string> => 
         });
 
         if (response.text) {
-          fullTranscriptionParts.push(response.text);
-          success = true;
+          return response.text;
         } else {
            throw new Error("Empty response from model");
         }
         
       } catch (error: any) {
         attempts++;
-        console.error(`Attempt ${attempts} failed for part ${i + 1}:`, error);
+        console.error(`Attempt ${attempts} failed for part ${index + 1}:`, error);
         
         if (attempts >= MAX_RETRIES) {
-          throw new Error(`Failed to transcribe part ${i + 1} after ${MAX_RETRIES} attempts. ${error.message}`);
+          throw new Error(`Failed to transcribe part ${index + 1} after ${MAX_RETRIES} attempts. ${error.message}`);
         }
         
         // Exponential backoff for retries
-        await delay(2000 * attempts);
+        await delay(2000 * Math.pow(2, attempts - 1));
       }
     }
+    throw new Error(`Failed to transcribe part ${index + 1}`);
+  };
+
+  // Execute chunks with a concurrency limit to speed up processing without hitting rate limits
+  const fullTranscriptionParts: string[] = new Array(files.length);
+  const CONCURRENCY_LIMIT = 3;
+  
+  for (let i = 0; i < files.length; i += CONCURRENCY_LIMIT) {
+    const batch = files.slice(i, i + CONCURRENCY_LIMIT);
+    const batchPromises = batch.map((file, batchIndex) => 
+      processChunk(file, i + batchIndex).then(text => {
+        fullTranscriptionParts[i + batchIndex] = text;
+      })
+    );
+    await Promise.all(batchPromises);
   }
 
-  if (fullTranscriptionParts.length === 0) {
+  if (fullTranscriptionParts.length === 0 || fullTranscriptionParts.every(part => !part)) {
     throw new Error("No transcription text returned from the model.");
   }
 
   // Join seamlessly with double newline for paragraph separation, but no text delimiters
-  return fullTranscriptionParts.join("\n\n");
+  return fullTranscriptionParts.filter(Boolean).join("\n\n");
 };
 
 export const translateTranscript = async (text: string): Promise<string> => {
@@ -172,6 +140,48 @@ export const translateTranscript = async (text: string): Promise<string> => {
   } catch (error: any) {
     console.error("Translation error:", error);
     throw new Error("Failed to translate transcript. " + error.message);
+  }
+};
+
+export const generateReadout = async (transcription: string): Promise<string> => {
+  if (!apiKey) {
+    throw new Error("API Key is missing.");
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+  
+  const prompt = `
+    You are an expert executive assistant and analyst. Your task is to create a professional readout or synopsis of the following transcript.
+    
+    TRANSCRIPT:
+    ${transcription}
+
+    REQUIREMENTS:
+    1. **Format**: The readout should be beautifully formatted using Markdown.
+    2. **Clarity**: It must be clear, concise, and easy to read.
+    3. **Attribution**: Attribute key points, decisions, or quotes to the specific speakers.
+    4. **Broad Summary**: Intelligently determine and state what the transcript is broadly about at the beginning.
+    5. **Tables**: If the transcript contains planning details, action items, or budgetary details, include these as beautifully formatted Markdown tables to support what's in the readout.
+    
+    Output the professional readout below:
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.1-pro-preview',
+      contents: {
+        parts: [{ text: prompt }]
+      },
+    });
+
+    if (!response.text) {
+      throw new Error("Failed to generate readout.");
+    }
+
+    return response.text;
+  } catch (error: any) {
+    console.error("Readout generation error:", error);
+    throw new Error("Failed to generate readout. " + error.message);
   }
 };
 

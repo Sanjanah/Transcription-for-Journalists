@@ -5,18 +5,21 @@ import { TranscriptionDisplay } from './components/TranscriptionDisplay';
 import { AssistantPanel } from './components/AssistantPanel';
 import { Button } from './components/Button';
 import { MediaFile, TranscriptionStatus } from './types';
-import { transcribeMedia, translateTranscript } from './services/geminiService';
-import { Play, Pause, AlertTriangle, FileAudio, FileVideo, Sparkles, FileText, MessageSquareText } from 'lucide-react';
+import { transcribeMedia, translateTranscript, generateReadout } from './services/geminiService';
+import { Play, Pause, AlertTriangle, FileAudio, FileVideo, Sparkles, FileText, MessageSquareText, FileBarChart } from 'lucide-react';
+import { marked } from 'marked';
 
 const App: React.FC = () => {
   const [mediaFile, setMediaFile] = useState<MediaFile | null>(null);
   const [status, setStatus] = useState<TranscriptionStatus>(TranscriptionStatus.IDLE);
   const [transcription, setTranscription] = useState<string>('');
   const [translatedText, setTranslatedText] = useState<string>('');
+  const [readoutText, setReadoutText] = useState<string>('');
   const [isTranslating, setIsTranslating] = useState(false);
+  const [isGeneratingReadout, setIsGeneratingReadout] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [activeTab, setActiveTab] = useState<'transcript' | 'assistant'>('transcript');
+  const [activeTab, setActiveTab] = useState<'transcript' | 'assistant' | 'readout'>('transcript');
 
   useEffect(() => {
     let interval: number;
@@ -35,6 +38,7 @@ const App: React.FC = () => {
     setError(null);
     setTranscription('');
     setTranslatedText('');
+    setReadoutText('');
     setStatus(TranscriptionStatus.IDLE);
     setActiveTab('transcript');
   };
@@ -75,10 +79,30 @@ const App: React.FC = () => {
     }
   };
 
+  const handleGenerateReadout = async () => {
+    if (!transcription) return;
+    
+    setIsGeneratingReadout(true);
+    setError(null);
+    setActiveTab('readout');
+    
+    try {
+      const result = await generateReadout(transcription);
+      setReadoutText(result);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Readout generation failed.");
+      setActiveTab('transcript');
+    } finally {
+      setIsGeneratingReadout(false);
+    }
+  };
+
   const handleReset = () => {
     setMediaFile(null);
     setTranscription('');
     setTranslatedText('');
+    setReadoutText('');
     setStatus(TranscriptionStatus.IDLE);
     setError(null);
     setActiveTab('transcript');
@@ -129,28 +153,19 @@ const App: React.FC = () => {
                 </div>
 
                 <div className="space-y-3">
-                  {mediaFile.type === 'youtube' ? (
+                  <div className="flex justify-between text-sm text-journal-500">
+                    <span>Filename:</span>
+                    <span className="font-medium text-journal-900 truncate max-w-[200px]">{mediaFile.originalFile?.name}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-journal-500">
+                    <span>Original Size:</span>
+                    <span className="font-medium text-journal-900">{((mediaFile.originalFile?.size || 0) / (1024 * 1024)).toFixed(2)} MB</span>
+                  </div>
+                  {(mediaFile.processedFiles?.length || 0) > 1 && (
                     <div className="flex justify-between text-sm text-journal-500">
-                      <span>Source:</span>
-                      <span className="font-medium text-journal-900 truncate max-w-[200px]">YouTube URL</span>
+                      <span>Segments:</span>
+                      <span className="font-medium text-journal-accent">{mediaFile.processedFiles?.length} chunks</span>
                     </div>
-                  ) : (
-                    <>
-                      <div className="flex justify-between text-sm text-journal-500">
-                        <span>Filename:</span>
-                        <span className="font-medium text-journal-900 truncate max-w-[200px]">{mediaFile.originalFile?.name}</span>
-                      </div>
-                      <div className="flex justify-between text-sm text-journal-500">
-                        <span>Original Size:</span>
-                        <span className="font-medium text-journal-900">{((mediaFile.originalFile?.size || 0) / (1024 * 1024)).toFixed(2)} MB</span>
-                      </div>
-                      {(mediaFile.processedFiles?.length || 0) > 1 && (
-                        <div className="flex justify-between text-sm text-journal-500">
-                          <span>Segments:</span>
-                          <span className="font-medium text-journal-accent">{mediaFile.processedFiles?.length} chunks</span>
-                        </div>
-                      )}
-                    </>
                   )}
                 </div>
 
@@ -194,6 +209,7 @@ const App: React.FC = () => {
                  <h4 className="font-semibold text-journal-700 mb-2 text-sm">Pro Tips</h4>
                  <ul className="text-sm text-journal-500 space-y-2 list-disc pl-4">
                    <li>Switch to the Assistant tab to summarize the text.</li>
+                   <li>Generate a professional readout for a quick overview.</li>
                    <li>You can translate the transcript to English in the Transcript view.</li>
                    <li>Use the search bar in the transcript view to find keywords.</li>
                  </ul>
@@ -213,6 +229,18 @@ const App: React.FC = () => {
                   >
                     <FileText size={16} />
                     Transcript
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('readout')}
+                    disabled={!transcription}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                      activeTab === 'readout' 
+                        ? 'bg-journal-900 text-white shadow-sm' 
+                        : 'bg-white text-journal-600 hover:bg-journal-50'
+                    }`}
+                  >
+                    <FileBarChart size={16} />
+                    Readout
                   </button>
                   <button
                     onClick={() => setActiveTab('assistant')}
@@ -237,6 +265,7 @@ const App: React.FC = () => {
                         onReset={handleReset} 
                         onTranslate={handleTranslate}
                         isTranslating={isTranslating}
+                        onGenerateReadout={handleGenerateReadout}
                        />
                     ) : (
                        <div className="h-full bg-white rounded-xl shadow-sm border border-journal-200 flex flex-col items-center justify-center text-center p-12">
@@ -253,6 +282,36 @@ const App: React.FC = () => {
                   
                   {activeTab === 'assistant' && (
                      <AssistantPanel transcription={transcription} />
+                  )}
+                  
+                  {activeTab === 'readout' && (
+                    <div className="h-full bg-white rounded-xl shadow-sm border border-journal-200 p-6 overflow-y-auto">
+                      {isGeneratingReadout ? (
+                        <div className="flex flex-col items-center justify-center h-full text-journal-400">
+                           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-journal-400 mb-4"></div>
+                           <p className="animate-pulse font-medium">Generating professional readout...</p>
+                           <p className="text-xs mt-2 opacity-70">Analyzing transcript and formatting details</p>
+                        </div>
+                      ) : readoutText ? (
+                        <div className="prose prose-journal max-w-none">
+                          <div dangerouslySetInnerHTML={{ __html: marked.parse(readoutText) as string }} />
+                        </div>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center h-full text-center">
+                          <div className="w-16 h-16 bg-journal-50 rounded-full flex items-center justify-center mb-4 text-journal-300">
+                            <FileBarChart size={32} />
+                          </div>
+                          <h3 className="text-lg font-medium text-journal-400 mb-2">Professional Readout</h3>
+                          <p className="text-journal-400 max-w-xs mx-auto mb-6">
+                            Generate a beautifully formatted synopsis of the transcript, including key points, attributions, and tables for planning or budgetary details.
+                          </p>
+                          <Button onClick={handleGenerateReadout} className="shadow-md shadow-journal-900/10">
+                            <Sparkles size={16} className="mr-2" />
+                            Generate Readout
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
             </div>

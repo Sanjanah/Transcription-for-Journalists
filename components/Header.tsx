@@ -11,7 +11,7 @@ export const Header: React.FC = () => {
           </div>
           <div>
             <h1 className="text-xl font-bold font-serif text-journal-900 tracking-tight">Transcribe Assistant</h1>
-            <p className="text-xs text-journal-500 hidden sm:block">Professional Audio Intelligence</p>
+            <p className="text-xs text-journal-500 hidden sm:block">Accurate voice transcription</p>
           </div>
         </div>
         

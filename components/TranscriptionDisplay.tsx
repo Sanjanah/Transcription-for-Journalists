@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Copy, Check, Download, Type, RotateCcw, Search, ChevronUp, ChevronDown, X, Globe, Languages } from 'lucide-react';
+import { Copy, Check, Download, Type, RotateCcw, Search, ChevronUp, ChevronDown, X, Globe, Languages, FileBarChart } from 'lucide-react';
 import { Button } from './Button';
 import { copyToClipboard, downloadText } from '../utils/fileHelper';
 
@@ -9,6 +9,7 @@ interface TranscriptionDisplayProps {
   onReset: () => void;
   onTranslate?: () => void;
   isTranslating?: boolean;
+  onGenerateReadout?: () => void;
 }
 
 export const TranscriptionDisplay: React.FC<TranscriptionDisplayProps> = ({ 
@@ -16,7 +17,8 @@ export const TranscriptionDisplay: React.FC<TranscriptionDisplayProps> = ({
   translatedText, 
   onReset,
   onTranslate,
-  isTranslating = false
+  isTranslating = false,
+  onGenerateReadout
 }) => {
   const [copied, setCopied] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -187,13 +189,6 @@ export const TranscriptionDisplay: React.FC<TranscriptionDisplayProps> = ({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2">
-           {!translatedText && !isTranslating && viewMode === 'original' && (
-             <Button variant="secondary" size="sm" onClick={onTranslate} className="h-8 md:px-3 text-xs">
-                <Languages size={14} className="mr-1.5" />
-                Translate to English
-             </Button>
-           )}
-
           <Button variant="outline" size="sm" onClick={handleCopy} title="Copy to clipboard" className="h-8 w-8 px-0 md:w-auto md:px-3">
             {copied ? <Check size={14} className="md:mr-1.5" /> : <Copy size={14} className="md:mr-1.5" />}
             <span className="hidden md:inline">{copied ? 'Copied' : 'Copy'}</span>
