@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Upload, Music, Video, AlertCircle, Loader2 } from 'lucide-react';
+import { Upload, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from './Button';
 import { MediaFile } from '../types';
 import { processMediaFile } from '../utils/fileHelper';
@@ -126,15 +126,8 @@ export const MediaUploader: React.FC<MediaUploaderProps> = ({ onFileSelect, isLo
         )}
 
         {!isProcessing && (
-          <div className="mt-8 grid grid-cols-2 gap-8 text-journal-400 text-sm">
-            <div className="flex items-center gap-2">
-              <Music size={16} />
-              <span>Crystal clear audio processing</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Video size={16} />
-              <span>Video context support</span>
-            </div>
+          <div className="mt-8 text-journal-400 text-sm italic">
+            <span>Vibe coded by Dr Sanjana Hattotuwa.</span>
           </div>
         )}
 
